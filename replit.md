@@ -2,9 +2,12 @@
 
 ## Overview
 
-This project implements a Flow Manager system that executes tasks sequentially based on predefined conditions. The flow logic is defined using JSON configuration, making the system generic and extensible. Tasks are executed in order, with conditions determining the next step based on success or failure outcomes.
+This project implements a Flow Manager system that executes tasks sequentially based on predefined conditions. The system uses JSON configuration to define flow logic, making it generic and extensible. Built as a Python microservice using FastAPI, it provides an API endpoint to execute configurable task workflows.
 
-The application is built as a Python microservice using FastAPI.
+The core functionality centers around:
+- Sequential task execution controlled by conditional logic
+- Task success/failure evaluation to determine flow progression
+- Execution logging for tracking task results
 
 ## User Preferences
 
@@ -12,63 +15,60 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Core Design Pattern: Condition-Based Flow Engine
+### Flow Engine Pattern
 
-**Problem**: Need a flexible system to execute tasks in sequence where the execution path depends on task outcomes.
+The system uses a state-machine-like pattern where:
+- **Problem**: Need to execute multiple tasks in sequence with conditional branching
+- **Solution**: A FlowEngine class that reads flow configuration and executes tasks based on conditions
+- **Approach**: Tasks are registered in a registry (dictionary mapping task names to functions). The engine starts at a designated task and uses conditions to determine the next task based on success/failure results.
 
-**Solution**: A flow engine that reads JSON configuration defining tasks and conditions. Each condition maps a source task's result to the next task.
+### Task Registry Pattern
 
-**How it works**:
-- Tasks are simple Python functions that return `True` (success) or `False` (failure)
-- Conditions define what happens after each task completes
-- The engine loops through tasks until reaching "end" or encountering an error
+- **Problem**: Need a flexible way to map task names from configuration to actual executable code
+- **Solution**: A simple dictionary-based registry (`TASK_REGISTRY`) that maps string task names to Python functions
+- **Pros**: Easy to extend by adding new functions and registry entries
+- **Cons**: Tasks must be pre-registered; no dynamic task loading
+
+### Configuration-Driven Flow Definition
+
+- **Problem**: Hardcoding flow logic makes changes difficult
+- **Solution**: JSON-based flow configuration that defines tasks, conditions, and execution paths
+- **Components**:
+  - `tasks`: List of task definitions with names and descriptions
+  - `conditions`: Rules that connect tasks and define branching based on success/failure
+  - `start_task`: Entry point for flow execution
+
+### API Layer
+
+- **Framework**: FastAPI
+- **Endpoint**: `POST /execute-flow` accepts a flow configuration and returns execution results
+- **Data Validation**: Pydantic models (`Flow`, `Task`, `Condition`, `FlowRequest`) handle request validation
 
 ### Project Structure
 
 ```
 flow_manager/
 ├── app/
-│   ├── main.py          # FastAPI application entry point
-│   ├── models.py         # Pydantic models for request validation
-│   ├── flow_engine.py    # Core flow execution logic
-│   └── tasks.py          # Task implementations and registry
+│   ├── main.py          # FastAPI application and endpoints
+│   ├── models.py        # Pydantic data models
+│   ├── flow_engine.py   # Core flow execution logic
+│   └── tasks.py         # Task implementations and registry
 ├── tests/
 │   └── test_flow_engine.py
-├── sample_flow.json      # Example flow configuration
+├── sample_flow.json     # Example flow configuration
 └── requirements.txt
 ```
-
-### Key Components
-
-1. **FlowEngine** (`flow_engine.py`): Executes flows by looking up tasks in a registry, running them, and using conditions to determine the next task.
-
-2. **Task Registry** (`tasks.py`): A dictionary mapping task names to Python functions. New tasks are added here.
-
-3. **Pydantic Models** (`models.py`): Define the structure for Flow, Task, Condition, and FlowRequest objects.
-
-4. **API Endpoints** (`main.py`):
-   - `GET /` - Health check
-   - `POST /execute-flow` - Execute a flow from JSON configuration
-
-### Flow Configuration Format
-
-Flows are defined with:
-- `start_task`: Which task to run first
-- `tasks`: List of task definitions (name + description)
-- `conditions`: Rules mapping task results to next steps
 
 ## External Dependencies
 
 ### Python Packages
-- **FastAPI**: Web framework for the REST API
-- **Uvicorn**: ASGI server to run the FastAPI application
-- **Pytest**: Testing framework
 
-### Running the Application
-```bash
-cd flow_manager
-uvicorn app.main:app --reload
-```
+| Package | Purpose |
+|---------|---------|
+| FastAPI | Web framework for API endpoints |
+| Uvicorn | ASGI server to run FastAPI |
+| Pytest | Testing framework |
 
-### No Database
-Currently no database is used. Flow configurations are passed directly via API requests. Task results are returned in the response but not persisted.
+### No External Services
+
+The current implementation has no external database, message queue, or third-party API integrations. All task execution is in-memory and stateless per request.
